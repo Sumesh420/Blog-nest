@@ -36,13 +36,13 @@ export default function Header() {
   return (
    <header className="py-3 shadow bg-gray-500">
     <Container>
-      <nav className="flex">
+      <nav className="flex items-center justify-between">
         <div className="mr-4">
           <Link to="/">
             <Logo width="70px"/>
           </Link>
         </div>
-        <ul>
+        <ul className="flex items-center gap-4">
        {   
        navItems.map((item)=> item.active?(
         <li key={item.name}>

@@ -1,9 +1,9 @@
 import React, {useCallback, useEffect, useState} from 'react'
 import { useForm } from 'react-hook-form'
 import { useSelector } from 'react-redux'
-import {Button,Select,Input,RTE} from ".index.js"
+import {Button,Select,Input,RTE} from "../index.js"
 import { useNavigate } from 'react-router-dom'
-import appwriteService from "../../appwrite/config.js"
+import bucketService from "../../appwrite/config.js"
 export default function PostForm({post}) {
   const {register,handleSubmit,watch,setValue,getValues,control}=useForm({
     defaultValues:{
@@ -16,53 +16,62 @@ export default function PostForm({post}) {
   })
   const navigate=useNavigate()
   const userData=useSelector(state=>state.auth.userData)
-  const submit=async(data)=>{
-    if(post){
-    const file=  data.image[0]?appwriteService.uploadFile(data.image[0]):null
-    if(file){
-      appwriteService.deleteFile(post.featuredImage)
-    }
-    const dbPost=await appwriteService.updatePost(post.$id,{
-      ...data,featuredImage:file?file.$id:undefined
-    })
-    if(dbPost){
-      navigate(`/post/${dbPost.$id}`)
-    }
-    }else{
-      const file=await appwriteService.uploadFile(data.image[0])
-      if(file){
-        const fileId=file.$id
-        data.featuredImage=fileId
-        const dbPost=await appwriteService.createPost({
-          ...data,
-          userId:userData.$id
-        })
-        if(dbPost){
-          navigate(`/post/${dbPost.$id}`)
-        }
+  const slugTransform=useCallback((value)=>{
+    if(value && typeof value==="string") 
+      return value.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-') // Replace invalid chars with a hyphen
+    .replace(/^-+/, '') // Remove leading hyphen
+    .replace(/-+$/, ''); // Remove trailing hyphen
+    
+      
+    
+  },[])
+  useEffect(()=>{
+    const subscription=watch((value,{name})=>{
+      if(name==="title"){
+        setValue("slug",slugTransform(value.title,{shouldValidate:true}))
       }
+     
+    });
+     return ()=> subscription.unsubscribe()
+  },[watch,slugTransform,setValue])
+  const submit = async (data) => {  //https://fra.cloud.appwrite.io/v1/storage/buckets/67fc7ea800104ca95253/files/680b8f150033c9a10700/view?project=67fc77580034ab3c8a83&mode=admin
+    console.log(data)
+    if (post) {
+    
+        const file = data.image[0] ? await bucketService.uploadFile(data.image[0]) : null;
 
-    }
-    const slugTransform=useCallback((value)=>{
-      if(value && typeof value==="string") 
-        return value.trim()
-      .toLowerCase()
-      .replace(/^[a-zA-z/d/s]+/g,"-")
-      
-        
-      
-    })
-    useEffect(()=>{
-      const subscription=watch((value,{name})=>{
-        if(name==="title"){
-          setValue("slug",slugTransform(value.title,{shouldValidate:true}))
+        if (file) {
+            bucketService.deleteFile(post.featuredImage);
         }
-        return ()=> subscription.unsubscribe()
-      })
-    },[watch,slugTransform,setValue])
-  }
+
+        const dbPost = await bucketService.updatePost(post.$id, {
+            ...data,
+            featuredImage: file ? file.$id : undefined,
+        });
+
+        if (dbPost) {
+            navigate(`/post/${dbPost.$id}`);
+        }
+    } else {
+        const file = await bucketService.uploadFile(data.image[0]);
+        console.log(file)
+        if (file) {
+          console.log("No file",file)
+            const fileId = file.$id;
+            data.featuredImage = fileId;
+            const dbPost = await bucketService.createPost({ ...data, userId: userData.$id });
+
+            if (dbPost) {
+                navigate(`/post/${dbPost.$id}`);
+            }
+        }
+    }
+};
   return (
-    <form onSubmit={handleSubmit(submit)} className="flex flex-wrap">
+    
+ <form onSubmit={handleSubmit(submit)} className="flex flex-wrap justify-between items-center">
       <div className="w-2/3 px-2">
       <Input 
       label="Title"
@@ -81,8 +90,8 @@ export default function PostForm({post}) {
       />
       <RTE label="Content" name="content" control={control} defaultValues={getValues("content")}/>
       </div>
-      /* Right side */
-      <div className="w-1/3 px-2">
+      
+      <div className="w-full md:w-1/3 px-2 mt-4 md:mt-0 ml-auto">
       <Input label="Featured Image :"
       type="file"
       className="mb-4" 
@@ -91,17 +100,20 @@ export default function PostForm({post}) {
       />
       {post && (
         <div className="w-full mb-4">
-          <img src={appwriteService.getFilePreview(post.featuredImage)} alt={post.title} className="rounded-lg" />
+          <img src={bucketService.getFilePreview(post.featuredImage)} alt={post.title} className="rounded-lg" />
         </div>
       )}
       <Select 
       options={["active","inactive"]}
       label="Status"
-      className="mb-4"
+      className="mb-8"
       {...register("status",{required:true})}
       />
-      <Button type="submit" bgColor={post ? "bg-green-500" : undefined} className="w-full" >{post ? "Update":"Submit"}</Button>
+      <Button type="submit" bgColor={post ? "bg-green-500" : undefined} className="w-full mt-4" >{post ? "Update":"Submit"}</Button>
       </div>
     </form>
+
+   
+   
   )
 }

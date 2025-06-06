@@ -17,7 +17,7 @@ export default function Login() {
             if(session){
               const userData=await authService.currentUser()
               if(userData){
-                dispatch(authLogin({userData}))
+                dispatch(authLogin(userData))
                 navigate("/")
               } 
             }
